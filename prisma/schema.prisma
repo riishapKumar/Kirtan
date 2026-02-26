@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Text {
+  id        String        @id @default(cuid())
+  slug      String        @unique
+  title     String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  versions  TextVersion[]
+}
+
+model TextVersion {
+  id               String           @id @default(cuid())
+  textId           String
+  versionNumber    Int
+  rawContent       String
+  extractedContent String
+  romanizedContent String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  text             Text             @relation(fields: [textId], references: [id], onDelete: Cascade)
+  lines            TextLine[]
+  tags             TextVersionTag[]
+
+  @@unique([textId, versionNumber])
+}
+
+model TextLine {
+  id               String      @id @default(cuid())
+  textVersionId    String
+  lineNumber       Int
+  rawContent       String
+  extractedContent String
+  romanizedContent String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  textVersion      TextVersion @relation(fields: [textVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([textVersionId, lineNumber])
+}
+
+model Tag {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  texts     TextVersionTag[]
+}
+
+model TextVersionTag {
+  textVersionId String
+  tagId         String
+  createdAt     DateTime    @default(now())
+  textVersion   TextVersion @relation(fields: [textVersionId], references: [id], onDelete: Cascade)
+  tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([textVersionId, tagId])
+}
