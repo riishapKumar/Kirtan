@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { detectDevanagari, segmentLines, slugify, type EditableLine } from "@/lib/text-processing";
 import { romanizeDevanagari, validateRomanizedLatin } from "@/lib/romanize";
+import pdfParse from "pdf-parse";
 
 export interface ExtractionResult {
   extractedText: string;
@@ -29,12 +30,36 @@ export async function extractPdfText(formData: FormData): Promise<ExtractionResu
   };
 }
 
+async function uploadPdfToSupabase(file: File): Promise<string | null> {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "pdfs";
+
+  if (!supabaseUrl || !serviceRole) return null;
+
+  const objectPath = `${Date.now()}-${file.name}`;
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${objectPath}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${serviceRole}`,
+      apikey: serviceRole,
+      "Content-Type": file.type || "application/pdf",
+      "x-upsert": "true",
+    },
+    body: Buffer.from(await file.arrayBuffer()),
+  });
+
+  if (!response.ok) throw new Error("Failed to upload PDF to Supabase Storage.");
+  return `${bucket}/${objectPath}`;
+}
+
 interface SavePayload {
   title: string;
   tags: string[];
   rawContent: string;
   lines: string[];
   romanizedLines: string[];
+  sourcePdfFile?: File;
 }
 
 export async function saveUploadedText(payload: SavePayload): Promise<{ textId: string; slug: string }> {
@@ -69,6 +94,7 @@ export async function saveUploadedText(payload: SavePayload): Promise<{ textId: 
     data: {
       title: cleanedTitle,
       slug,
+      sourcePdf: payload.sourcePdfFile ? await uploadPdfToSupabase(payload.sourcePdfFile) : null,
       versions: {
         create: {
           versionNumber: 1,
