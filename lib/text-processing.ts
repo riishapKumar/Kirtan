@@ -1,12 +1,12 @@
+import { containsDevanagari, romanizeDevanagari } from "@/lib/romanize";
+
 export interface EditableLine {
   id: string;
   content: string;
 }
 
-const devanagariRegex = /[\u0900-\u097F]/;
-
 export function detectDevanagari(content: string): boolean {
-  return devanagariRegex.test(content);
+  return containsDevanagari(content);
 }
 
 export function segmentLines(rawText: string): EditableLine[] {
@@ -26,11 +26,7 @@ export function segmentLines(rawText: string): EditableLine[] {
 }
 
 export function romanizeLine(content: string): string {
-  return content
-    .normalize("NFD")
-    .replace(/[\u0900-\u097F]/g, (char) => (char === "\u0964" ? "." : char === "\u0965" ? ".." : ""))
-    .replace(/\s+/g, " ")
-    .trim();
+  return romanizeDevanagari(content, { titleCase: true });
 }
 
 export function slugify(input: string): string {
