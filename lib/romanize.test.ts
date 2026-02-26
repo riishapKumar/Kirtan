@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { containsDevanagari, romanizeDevanagari, validateRomanizedLatin } from "@/lib/romanize";
+import { containsDevanagari, romanizeDevanagari, validateRomanizedLatin } from "./romanize";
 
 test("romanizes Shri and title-cases by default", () => {
   assert.equal(
