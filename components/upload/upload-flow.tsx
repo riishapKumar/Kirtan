@@ -3,7 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 
-import { romanizeLine, type EditableLine } from "@/lib/text-processing";
+import { type EditableLine } from "@/lib/text-processing";
+import { romanizeDevanagari, validateRomanizedLatin } from "@/lib/romanize";
 import { Button } from "@/components/ui/button";
 import { extractPdfText, saveUploadedText, type ExtractionResult } from "@/app/upload/actions";
 
@@ -21,12 +22,20 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
   const [rawContent, setRawContent] = useState("");
   const [isDevanagari, setIsDevanagari] = useState(false);
   const [lines, setLines] = useState<EditableLine[]>(initialResult?.lines ?? []);
+  const [romanizedLines, setRomanizedLines] = useState<string[]>(
+    (initialResult?.lines ?? []).map((line) => romanizeDevanagari(line.content)),
+  );
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const tags = useMemo(
     () => tagsInput.split(",").map((tag) => tag.trim()).filter(Boolean),
     [tagsInput],
+  );
+
+  const hasRomanizationWarning = useMemo(
+    () => romanizedLines.some((line) => validateRomanizedLatin(line).hasDevanagari),
+    [romanizedLines],
   );
 
   const runExtraction = (formData: FormData) => {
@@ -37,6 +46,7 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
         setRawContent(result.extractedText);
         setIsDevanagari(result.isDevanagari);
         setLines(result.lines);
+        setRomanizedLines(result.lines.map((line) => romanizeDevanagari(line.content)));
         setStep(2);
       } catch (extractError) {
         setError(extractError instanceof Error ? extractError.message : "Extraction failed.");
@@ -45,15 +55,30 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
   };
 
   const updateLine = (id: string, value: string) => {
+    const lineIndex = lines.findIndex((line) => line.id === id);
     setLines((current) => current.map((line) => (line.id === id ? { ...line, content: value } : line)));
+    if (lineIndex >= 0) {
+      setRomanizedLines((current) => current.map((line, index) => (index === lineIndex ? romanizeDevanagari(value) : line)));
+    }
+  };
+
+  const updateRomanizedLine = (index: number, value: string) => {
+    setRomanizedLines((current) => current.map((line, lineIndex) => (lineIndex === index ? value : line)));
   };
 
   const trimLine = (id: string) => {
-    setLines((current) => current.map((line) => (line.id === id ? { ...line, content: line.content.trim() } : line)));
+    const target = lines.find((line) => line.id === id);
+    if (!target) return;
+    updateLine(id, target.content.trim());
   };
 
   const deleteLine = (id: string) => {
-    setLines((current) => current.filter((line) => line.id !== id));
+    setLines((current) => {
+      const index = current.findIndex((line) => line.id === id);
+      if (index < 0) return current;
+      setRomanizedLines((romanizedCurrent) => romanizedCurrent.filter((_, romanizedIndex) => romanizedIndex !== index));
+      return current.filter((line) => line.id !== id);
+    });
   };
 
   const splitLine = (id: string) => {
@@ -64,12 +89,14 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
       const midpoint = Math.max(1, Math.floor(target.content.length / 2));
       const left = target.content.slice(0, midpoint).trim();
       const right = target.content.slice(midpoint).trim();
-      return [
+      const nextLines = [
         ...current.slice(0, targetIndex),
         { id: `${id}-a`, content: left || target.content },
         { id: `${id}-b`, content: right || "" },
         ...current.slice(targetIndex + 1),
       ].filter((line) => line.content.length > 0);
+      setRomanizedLines(nextLines.map((line) => romanizeDevanagari(line.content)));
+      return nextLines;
     });
   };
 
@@ -78,7 +105,9 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
       const idx = current.findIndex((line) => line.id === id);
       if (idx < 0 || idx === current.length - 1) return current;
       const merged = `${current[idx].content} ${current[idx + 1].content}`.trim();
-      return [...current.slice(0, idx), { id: current[idx].id, content: merged }, ...current.slice(idx + 2)];
+      const nextLines = [...current.slice(0, idx), { id: current[idx].id, content: merged }, ...current.slice(idx + 2)];
+      setRomanizedLines(nextLines.map((line) => romanizeDevanagari(line.content)));
+      return nextLines;
     });
   };
 
@@ -89,6 +118,7 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
       if (idx < 0 || swapIdx < 0 || swapIdx >= current.length) return current;
       const cloned = [...current];
       [cloned[idx], cloned[swapIdx]] = [cloned[swapIdx], cloned[idx]];
+      setRomanizedLines(cloned.map((line) => romanizeDevanagari(line.content)));
       return cloned;
     });
   };
@@ -97,11 +127,15 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
     setError(null);
     startSaving(async () => {
       try {
+        const cleanedLines = lines.map((line) => line.content.trim()).filter(Boolean);
+        const cleanedRomanizedLines = romanizedLines.map((line) => line.trim()).filter((_, index) => lines[index]?.content.trim().length > 0);
+
         const result = await saveUploadedText({
           title,
           tags,
           rawContent,
-          lines: lines.map((line) => line.content.trim()).filter(Boolean),
+          lines: cleanedLines,
+          romanizedLines: cleanedRomanizedLines,
         });
         setSavedSlug(result.slug);
       } catch (saveError) {
@@ -144,6 +178,12 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
             <p className="text-muted-foreground">Segmentation mode: newline-first, fallback on danda markers (`।`, `॥`).</p>
           </div>
 
+          {hasRomanizationWarning ? (
+            <p className="rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-sm text-amber-700">
+              Warning: Romanized (Latin) still contains Devanagari characters. Please manually edit before save.
+            </p>
+          ) : null}
+
           <div className="grid gap-3">
             {lines.map((line, index) => (
               <div key={line.id} className="grid gap-2 rounded-md border p-3">
@@ -158,22 +198,33 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
                     <Button size="sm" variant="outline" onClick={() => deleteLine(line.id)}>Delete</Button>
                   </div>
                 </div>
-                <textarea value={line.content} onChange={(event) => updateLine(line.id, event.target.value)} className="min-h-20 rounded-md border px-3 py-2" />
+                <label className="grid gap-1 text-sm">
+                  Source (Devanagari)
+                  <textarea value={line.content} onChange={(event) => updateLine(line.id, event.target.value)} className="min-h-20 rounded-md border px-3 py-2" />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  Romanized (Latin)
+                  <textarea
+                    value={romanizedLines[index] ?? ""}
+                    onChange={(event) => updateRomanizedLine(index, event.target.value)}
+                    className="min-h-20 rounded-md border px-3 py-2"
+                  />
+                </label>
               </div>
             ))}
           </div>
 
           <div className="grid gap-3 rounded-lg border p-4 md:grid-cols-2">
             <div>
-              <h2 className="mb-2 font-medium">Hindi</h2>
+              <h2 className="mb-2 font-medium">Source (Devanagari)</h2>
               <ol className="list-decimal space-y-1 pl-6 text-sm">
                 {lines.map((line) => <li key={`${line.id}-hi`}>{line.content}</li>)}
               </ol>
             </div>
             <div>
-              <h2 className="mb-2 font-medium">Romanized</h2>
+              <h2 className="mb-2 font-medium">Romanized (Latin)</h2>
               <ol className="list-decimal space-y-1 pl-6 text-sm text-muted-foreground">
-                {lines.map((line) => <li key={`${line.id}-ro`}>{romanizeLine(line.content)}</li>)}
+                {romanizedLines.map((line, index) => <li key={`${lines[index]?.id ?? index}-ro`}>{line}</li>)}
               </ol>
             </div>
           </div>
