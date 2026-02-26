@@ -1,3 +1,8 @@
+import { notFound } from "next/navigation";
+
+import { prisma } from "@/lib/prisma";
+import { EditVersionEditor } from "@/components/edit/edit-version-editor";
+
 interface EditPageProps {
   params: Promise<{ id: string }>;
 }
@@ -5,5 +10,31 @@ interface EditPageProps {
 export default async function EditPage({ params }: EditPageProps) {
   const { id } = await params;
 
-  return <h1 className="text-xl font-semibold">Edit: {id}</h1>;
+  const text = await prisma.text.findUnique({
+    where: { id },
+    include: {
+      versions: {
+        orderBy: { versionNumber: "desc" },
+        include: {
+          lines: { orderBy: { lineNumber: "asc" } },
+        },
+      },
+    },
+  });
+
+  if (!text || text.versions.length === 0) notFound();
+
+  const latest = text.versions[0];
+
+  return (
+    <EditVersionEditor
+      textId={text.id}
+      initialLines={latest.lines}
+      versions={text.versions.map((version: (typeof text.versions)[number]) => ({
+        id: version.id,
+        versionNumber: version.versionNumber,
+        createdAt: version.createdAt.toISOString(),
+      }))}
+    />
+  );
 }
