@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "edge";
 interface LibraryPageProps {
   searchParams: Promise<{ q?: string; tag?: string }>;
 }

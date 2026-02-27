@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { TeleprompterView } from "@/components/teleprompter/teleprompter-view";
 
+export const runtime = "edge";
 interface TemplatePageProps {
   params: Promise<{ slug: string }>;
 }

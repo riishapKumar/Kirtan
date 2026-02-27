@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { EditVersionEditor } from "@/components/edit/edit-version-editor";
 
+export const runtime = "edge";
 interface EditPageProps {
   params: Promise<{ id: string }>;
 }
