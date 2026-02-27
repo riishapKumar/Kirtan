@@ -45,12 +45,13 @@ Mobile-first and desktop-friendly teleprompter for Hindi/Devanagari devotional t
 1. Push repo to Git provider.
 2. In Cloudflare Pages, create a new project from the repo.
 3. Build settings:
-   - Build command: `npm run build`
+   - Build command: `npm run build:pages`
    - Output directory: `.next`
 4. Keep `wrangler.toml` in the repo so Cloudflare picks up Worker compatibility settings (`nodejs_compat`) during deploy.
 5. Add environment variables from `.env.example` in Pages settings.
-6. Run DB migrations from CI/CD or manually before first production run:
-   - `npx prisma migrate deploy`
+6. `build:pages` intentionally skips DB migrations by default to avoid deploy-time failures when database credentials are unavailable in build containers.
+   - To run migrations during deploy, set `RUN_DB_MIGRATIONS=true` in Cloudflare Pages environment variables.
+   - Otherwise, run `npx prisma migrate deploy` from CI/CD or manually before the first production run.
 7. Deploy.
 
 ## Useful commands
