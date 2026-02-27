@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
-    "test": "tsx --test"
+    "test": "tsx --test",
+    "build:pages": "node scripts/cloudflare-build.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
