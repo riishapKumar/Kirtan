@@ -1,61 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { detectDevanagari, segmentLines, slugify, type EditableLine } from "@/lib/text-processing";
+import { slugify } from "@/lib/text-processing";
 import { romanizeDevanagari, validateRomanizedLatin } from "@/lib/romanize";
-import pdfParse from "pdf-parse";
-
-const LOG_PREFIX = "[upload.extractPdfText]";
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-
-export interface ExtractionResult {
-  extractedText: string;
-  isDevanagari: boolean;
-  lines: EditableLine[];
-}
-
-export async function extractPdfText(formData: FormData): Promise<ExtractionResult> {
-  const file = formData.get("pdf");
-
-  if (!(file instanceof File)) {
-    throw new Error("Please provide a PDF file.");
-  }
-
-  if (file.type !== "application/pdf") {
-    throw new Error("Only PDF files are supported.");
-  }
-
-  if (file.size === 0) {
-    throw new Error("The uploaded PDF is empty.");
-  }
-
-  if (file.size > MAX_UPLOAD_BYTES) {
-    throw new Error(`PDF exceeds the maximum allowed size of ${Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))}MB.`);
-  }
-
-  let parsed: Awaited<ReturnType<typeof pdfParse>>;
-
-  try {
-    parsed = await pdfParse(Buffer.from(await file.arrayBuffer()));
-  } catch (error) {
-    console.error(`${LOG_PREFIX} Failed to parse uploaded PDF.`, {
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      stack: error instanceof Error ? error.stack : String(error),
-    });
-    throw new Error("PDF extraction failed. Please try a smaller or text-based PDF.");
-  }
-
-  const extractedText = (parsed.text ?? "").replace(/\u0000/g, " ").trim();
-
-  return {
-    extractedText,
-    isDevanagari: detectDevanagari(extractedText),
-    lines: segmentLines(extractedText),
-  };
-}
-
 async function uploadPdfToSupabase(file: File): Promise<string | null> {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
