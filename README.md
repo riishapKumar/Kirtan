@@ -11,6 +11,7 @@ Mobile-first and desktop-friendly teleprompter for Hindi/Devanagari devotional t
 ## Features
 - `/library`: search, tag filtering, cards and quick open/edit links.
 - `/upload`: two-step upload + review workflow with PDF extraction.
+- PDF extraction is served by `POST /api/extract-pdf` and must run in a **Node.js runtime** service (required for `pdf-parse`).
 - `/t/[slug]`: teleprompter with autoscroll, mode toggles, shortcuts, fullscreen, mirror, and localStorage settings.
 - `/edit/[id]`: edit lines, save new version and view version history.
 
@@ -48,6 +49,7 @@ Mobile-first and desktop-friendly teleprompter for Hindi/Devanagari devotional t
    - Build command: `npm run build:pages`
    - Output directory: `.next`
 4. Keep `wrangler.toml` in the repo so Cloudflare picks up Worker compatibility settings (`nodejs_compat`) during deploy.
+   - PDF extraction depends on the Node.js-pinned route handler (`app/api/extract-pdf/route.ts`), so ensure your deployment target supports Node runtime execution for that endpoint.
 5. Add environment variables from `.env.example` in Pages settings.
 6. `build:pages` intentionally skips DB migrations by default to avoid deploy-time failures when database credentials are unavailable in build containers.
    - To run migrations during deploy, set `RUN_DB_MIGRATIONS=true` in Cloudflare Pages environment variables.

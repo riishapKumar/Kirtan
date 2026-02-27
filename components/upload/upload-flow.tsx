@@ -6,7 +6,8 @@ import Link from "next/link";
 import { type EditableLine } from "@/lib/text-processing";
 import { romanizeDevanagari, validateRomanizedLatin } from "@/lib/romanize";
 import { Button } from "@/components/ui/button";
-import { extractPdfText, saveUploadedText, type ExtractionResult } from "@/app/upload/actions";
+import { saveUploadedText } from "@/app/upload/actions";
+import { type ExtractionResult } from "@/lib/pdf-extraction";
 
 interface UploadFlowProps {
   initialResult?: ExtractionResult;
@@ -44,8 +45,37 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
     startExtracting(async () => {
       try {
         const sourcePdf = formData.get("pdf");
-        if (sourcePdf instanceof File) setSourcePdfFile(sourcePdf);
-        const result = await extractPdfText(formData);
+
+        if (!(sourcePdf instanceof File)) {
+          throw new Error("Please provide a PDF file.");
+        }
+
+        setSourcePdfFile(sourcePdf);
+
+        const requestBody = new FormData();
+        requestBody.set("pdf", sourcePdf);
+
+        const response = await fetch("/api/extract-pdf", {
+          method: "POST",
+          body: requestBody,
+        });
+
+        const payload = (await response.json()) as Partial<ExtractionResult> & { error?: string };
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Extraction failed.");
+        }
+
+        if (typeof payload.extractedText !== "string" || typeof payload.isDevanagari !== "boolean" || !Array.isArray(payload.lines)) {
+          throw new Error("Unexpected extraction response.");
+        }
+
+        const result: ExtractionResult = {
+          extractedText: payload.extractedText,
+          isDevanagari: payload.isDevanagari,
+          lines: payload.lines,
+        };
+
         setRawContent(result.extractedText);
         setIsDevanagari(result.isDevanagari);
         setLines(result.lines);
