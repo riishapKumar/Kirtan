@@ -5,6 +5,9 @@ import { detectDevanagari, segmentLines, slugify, type EditableLine } from "@/li
 import { romanizeDevanagari, validateRomanizedLatin } from "@/lib/romanize";
 import pdfParse from "pdf-parse";
 
+const LOG_PREFIX = "[upload.extractPdfText]";
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
 export interface ExtractionResult {
   extractedText: string;
   isDevanagari: boolean;
@@ -18,7 +21,32 @@ export async function extractPdfText(formData: FormData): Promise<ExtractionResu
     throw new Error("Please provide a PDF file.");
   }
 
-  const parsed = await pdfParse(Buffer.from(await file.arrayBuffer()));
+  if (file.type !== "application/pdf") {
+    throw new Error("Only PDF files are supported.");
+  }
+
+  if (file.size === 0) {
+    throw new Error("The uploaded PDF is empty.");
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new Error(`PDF exceeds the maximum allowed size of ${Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))}MB.`);
+  }
+
+  let parsed: Awaited<ReturnType<typeof pdfParse>>;
+
+  try {
+    parsed = await pdfParse(Buffer.from(await file.arrayBuffer()));
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Failed to parse uploaded PDF.`, {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      stack: error instanceof Error ? error.stack : String(error),
+    });
+    throw new Error("PDF extraction failed. Please try a smaller or text-based PDF.");
+  }
+
   const extractedText = (parsed.text ?? "").replace(/\u0000/g, " ").trim();
 
   return {
