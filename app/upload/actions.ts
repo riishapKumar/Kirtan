@@ -18,10 +18,8 @@ export async function extractPdfText(formData: FormData): Promise<ExtractionResu
     throw new Error("Please provide a PDF file.");
   }
 
-  const content = Buffer.from(await file.arrayBuffer()).toString("utf-8");
-  const cleanedContent = content.replace(/[^\p{L}\p{N}\p{P}\p{Z}\n]/gu, " ").replace(/\s+/g, " ").trim();
-
-  const extractedText = cleanedContent.length > 0 ? cleanedContent : "";
+  const parsed = await pdfParse(Buffer.from(await file.arrayBuffer()));
+  const extractedText = (parsed.text ?? "").replace(/\u0000/g, " ").trim();
 
   return {
     extractedText,
