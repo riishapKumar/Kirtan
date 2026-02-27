@@ -47,10 +47,11 @@ Mobile-first and desktop-friendly teleprompter for Hindi/Devanagari devotional t
 3. Build settings:
    - Build command: `npm run build`
    - Output directory: `.next`
-4. Add environment variables from `.env.example` in Pages settings.
-5. Run DB migrations from CI/CD or manually before first production run:
+4. Keep `wrangler.toml` in the repo so Cloudflare picks up Worker compatibility settings (`nodejs_compat`) during deploy.
+5. Add environment variables from `.env.example` in Pages settings.
+6. Run DB migrations from CI/CD or manually before first production run:
    - `npx prisma migrate deploy`
-6. Deploy.
+7. Deploy.
 
 ## Useful commands
 - `npm run dev`
