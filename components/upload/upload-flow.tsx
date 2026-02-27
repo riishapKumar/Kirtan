@@ -20,6 +20,7 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
   const [title, setTitle] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [rawContent, setRawContent] = useState("");
+  const [sourcePdfFile, setSourcePdfFile] = useState<File | null>(null);
   const [isDevanagari, setIsDevanagari] = useState(false);
   const [lines, setLines] = useState<EditableLine[]>(initialResult?.lines ?? []);
   const [romanizedLines, setRomanizedLines] = useState<string[]>(
@@ -42,6 +43,8 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
     setError(null);
     startExtracting(async () => {
       try {
+        const sourcePdf = formData.get("pdf");
+        if (sourcePdf instanceof File) setSourcePdfFile(sourcePdf);
         const result = await extractPdfText(formData);
         setRawContent(result.extractedText);
         setIsDevanagari(result.isDevanagari);
@@ -136,6 +139,7 @@ export function UploadFlow({ initialResult }: UploadFlowProps) {
           rawContent,
           lines: cleanedLines,
           romanizedLines: cleanedRomanizedLines,
+          sourcePdfFile: sourcePdfFile ?? undefined,
         });
         setSavedSlug(result.slug);
       } catch (saveError) {

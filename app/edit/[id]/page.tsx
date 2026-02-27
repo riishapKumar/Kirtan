@@ -29,7 +29,7 @@ export default async function EditPage({ params }: EditPageProps) {
   return (
     <EditVersionEditor
       textId={text.id}
-      initialLines={latest.lines.map((line) => ({ id: line.id, extractedContent: line.extractedContent, romanizedContent: line.romanizedContent }))}
+      initialLines={latest.lines.map((line: (typeof latest.lines)[number]) => ({ id: line.id, extractedContent: line.extractedContent, romanizedContent: line.romanizedContent }))}
       versions={text.versions.map((version: (typeof text.versions)[number]) => ({
         id: version.id,
         versionNumber: version.versionNumber,
